@@ -25,7 +25,7 @@ def three_legged_auth(consumer):
     urllib2.install_opener(opener)
 
 if __name__ == '__main__':
-    three_legged_auth()
+    three_legged_auth(Consumer(YOURAPIKEY, YOURAPISECRET))
 
     req = urllib2.urlopen('https://api.twitter.com/statuses/friends.json')
     pprint(json.loads(req.read()))
