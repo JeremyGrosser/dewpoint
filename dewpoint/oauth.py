@@ -56,6 +56,7 @@ import base64
 import hmac
 import time
 
+
 def encode(params):
     '''urlencode a set of parameters as specified in the OAuth 1.0a spec'''
     return '&'.join(['%s=%s' % (k, v) for k, v in params])
