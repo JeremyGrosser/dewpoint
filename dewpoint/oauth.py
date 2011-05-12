@@ -11,7 +11,7 @@ EXAMPLE
 >>> # Basic example using a static consumer token:
 >>> from oauth import OAuthHandler, Token, Consumer
 >>> import urllib2
->>> opener = urllib2.build_opener(Consumer('xxxxxx', 'supersecret'))
+>>> opener = urllib2.build_opener(OAuthHandler(Consumer('xxxxxx', 'supersecret')))
 >>> urllib2.install_opener(opener)
 >>> response = urllib2.urlopen('http://api.example.com/1.0/magic')
 >>> print response.read()
