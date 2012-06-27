@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(name='dewpoint',
       description='urllib2 openers that sign requests for OAuth or Amazon APIs',
-      version='0.1',
+      version='0.2',
       author='Jeremy Grosser',
       author_email='jeremy+dewpoint@synack.me',
       url='https://github.com/synack/dewpoint',
