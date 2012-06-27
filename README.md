@@ -3,6 +3,7 @@ urllib2 openers that sign requests for OAuth or Amazon APIs
 
 ## OAuth 2
 
+```python
 	import dewpoint.oauth as oauth
 	import urllib2
 
@@ -34,9 +35,11 @@ urllib2 openers that sign requests for OAuth or Amazon APIs
 	user_opener = urllib2.build_opener(oauth.OAuthHandler(consumer, access_token))
 	resp = user_opener.urlopen('https://api.linkedin.com/v1/people/~/connections:first-name,last-name,location,picture-url', headers={'x-li-format': 'json'})
 	print json.loads(resp.read())
+```
 
 ## Amazon Web Services
 
+```python
 	from pprint import pprint
 	import os
 
@@ -67,3 +70,4 @@ urllib2 openers that sign requests for OAuth or Amazon APIs
 	for reservation in response.iterfind('reservationSet/item'):
     	for instance in reservation.iterfind('instancesSet/item'):
         	pprint(dictwalk(instance))
+```
