@@ -20,6 +20,18 @@ def parse_time(ts):
     return ts
 
 
+def dictwalk(element):
+    '''
+    Convenience function for recursively converting a simple XML tree into
+    nested dicts
+    '''
+    children = list(element)
+    if not children:
+        return {element.tag: element.text}
+    else:
+        return {element.tag: [dictwalk(x) for x in children]}
+
+
 class AWSException(Exception):
     def __init__(self, type, code, value, requestid):
         self.type = type
@@ -105,12 +117,12 @@ class AWSAuthHandler(urllib2.BaseHandler):
 
 
 class AWSClient(object):
-    def __init__(self, key, secret, version, baseurl=''):
+    def __init__(self, key, secret, version, endpoint=''):
         self.opener = urllib2.build_opener(AWSAuthHandler(key, secret, version=version))
-        self.baseurl = baseurl
+        self.endpoint = endpoint
 
     def request(self, method, url, data=None, headers={}):
-        url = self.baseurl + url
+        url = self.endpoint + url
         if data is not None:
             if method == 'POST':
                 data = urllib.urlencode(data)
