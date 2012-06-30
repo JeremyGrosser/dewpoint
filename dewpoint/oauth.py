@@ -104,7 +104,7 @@ class Request(urllib2.Request):
     urllib2.Request, allowing more fine-grained control of the OAuth process
     and HTTP request.
     '''
-    def __init__(self, url, data=None, headers=None, origin_req_host=None,
+    def __init__(self, url, data=None, headers={}, origin_req_host=None,
                  unverifiable=False, method=None, oauth_params=None):
         urllib2.Request.__init__(self, url, data, headers, origin_req_host,
                                  unverifiable)
@@ -154,7 +154,7 @@ class OAuthHandler(urllib2.BaseHandler):
             quote(uri),
             quote(query)))
 
-        signature = hmac.new(key, signature_base, hashlib.sha1)
+        signature = hmac.new(str(key), signature_base, hashlib.sha1)
         signature = base64.b64encode(signature.digest())
         return signature
 
