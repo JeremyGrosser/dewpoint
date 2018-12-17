@@ -1,7 +1,7 @@
 from xml.etree import ElementTree
-import urlparse
-import urllib2
-import urllib
+import urllib.parse
+import urllib.request
+import urllib.error
 
 import hashlib
 import base64
@@ -52,26 +52,26 @@ class AWSException(Exception):
         )
 
 
-class AWSAuthHandler(urllib2.BaseHandler):
-    def __init__(self, key, secret, version='2010-11-15', timeout=None):
+class AWSAuthHandler(urllib.request.BaseHandler):
+    def __init__(self, key, secret, version=b'2010-11-15', timeout=None):
         self.key = key
         self.secret = secret
         self.version = version
         self.timeout = timeout
 
     def get_signature(self, method, host, uri, query):
-        signature_base = '\n'.join((method, host, uri, query))
+        signature_base = b'\n'.join((method.encode('ascii'), host.encode('ascii'), uri.encode('ascii'), query.encode('ascii')))
         signature = hmac.new(self.secret, signature_base, hashlib.sha256)
-        signature = urllib.quote(base64.b64encode(signature.digest()))
+        signature = urllib.parse.quote(base64.b64encode(signature.digest()))
         return signature
 
     def parse_uri(self, req):
         method = req.get_method()
-        if method == 'POST':
-            query = req.get_data()
-            uri = req.get_selector()
+        if method == b'POST':
+            query = req.data
+            uri = req.selector
         else:
-            s = req.get_selector()
+            s = req.selector
             if s.find('?') != -1:
                 uri, query = s.split('?', 1)
             else:
@@ -80,12 +80,12 @@ class AWSAuthHandler(urllib2.BaseHandler):
         return method, uri, query
 
     def http_request(self, req):
-        if not 'Host' in req.headers:
-            req.add_header('Host', req.get_host())
-        host = req.headers['Host'].lower()
+        if not b'Host' in req.headers:
+            req.add_header(b'Host', req.host)
+        host = req.headers[b'Host'].lower()
         method, uri, query = self.parse_uri(req)
 
-        query = urlparse.parse_qsl(query)
+        query = urllib.parse.parse_qsl(query)
         query += [
             ('SignatureVersion', '2'),
             ('SignatureMethod', 'HmacSHA256'),
@@ -94,19 +94,19 @@ class AWSAuthHandler(urllib2.BaseHandler):
             ('Timestamp', format_time()),
         ]
         query.sort(key=lambda x: x[0])
-        query = urllib.urlencode(query)
+        query = urllib.parse.urlencode(query)
 
         signature = self.get_signature(method, host, uri, query)
         query += '&Signature=' + signature
 
         if method == 'POST':
-            req = urllib2.Request(
+            req = urllib.request.Request(
                 req.get_full_url(),
                 data=query,
                 headers=req.headers)
         else:
-            req = urllib2.Request(
-                '%s?%s' % (req.get_full_url().split('?', 1)[0], query),
+            req = urllib.request.Request(
+                '%s?%s' % (req.full_url.split('?', 1)[0], query),
                 headers=req.headers)
 
         req.timeout = self.timeout
@@ -117,23 +117,24 @@ class AWSAuthHandler(urllib2.BaseHandler):
 
 
 class AWSClient(object):
-    def __init__(self, key, secret, version, endpoint=''):
-        self.opener = urllib2.build_opener(AWSAuthHandler(key, secret, version=version))
+    def __init__(self, key, secret, version, endpoint='', timeout=None):
+        self.opener = urllib.request.build_opener(AWSAuthHandler(key, secret, version=version))
         self.endpoint = endpoint
+        self.timeout = timeout
 
     def request(self, method, url, data=None, headers={}):
         url = self.endpoint + url
         if data is not None:
             if method == 'POST':
-                data = urllib.urlencode(data)
+                data = urllib.parse.urlencode(data)
             else:
-                url = '%s?%s' % (url, urllib.urlencode(data))
+                url = '%s?%s' % (url, urllib.parse.urlencode(data))
                 data = None
 
-        req = urllib2.Request(url, data, headers)
+        req = urllib.request.Request(url, data, headers)
         try:
-            resp = self.opener.open(req)
-        except urllib2.HTTPError, e:
+            resp = self.opener.open(req, timeout=self.timeout)
+        except urllib.error.HTTPError as e:
             raise self.parse_httperror(e)
 
         i = resp.info()

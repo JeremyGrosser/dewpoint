@@ -1,3 +1,9 @@
+dewpoint (0.5.0) unstable; urgency=medium
+
+  * Python 3
+
+ -- Jeremy Grosser <jeremy@synack.me>  Mon, 17 Dec 2018 14:53:46 -0800
+
 dewpoint (0.4.1-2) unstable; urgency=medium
 
   * Added python provides 
