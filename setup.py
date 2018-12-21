@@ -1,13 +1,13 @@
 from setuptools import setup
 
 setup(name='dewpoint',
-      description='urllib2 openers that sign requests for OAuth or Amazon APIs',
-      version='0.5.0',
+      description='urllib openers that sign requests for Amazon APIs',
+      version='0.5.1',
       author='Jeremy Grosser',
       author_email='jeremy+dewpoint@synack.me',
-      url='https://github.com/synack/dewpoint',
-      download_url='https://github.com/JeremyGrosser/dewpoint/archive/0.5.0.tar.gz',
-      keywords=['urllib2', 'amazon', 'aws', 'oauth'],
+      url='https://github.com/JeremyGrosser/dewpoint',
+      download_url='https://github.com/JeremyGrosser/dewpoint/archive/0.5.1.tar.gz',
+      keywords=['urllib', 'amazon', 'aws'],
       classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',

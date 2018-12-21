@@ -1,3 +1,9 @@
+dewpoint (0.5.1) unstable; urgency=medium
+
+  * Remove deprecated OAuth module
+
+ -- Jeremy Grosser <jeremy@synack.me>  Fri, 21 Dec 2018 22:29:41 +0000
+
 dewpoint (0.5.0) unstable; urgency=medium
 
   * Python 3

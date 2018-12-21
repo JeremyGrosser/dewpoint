@@ -158,13 +158,13 @@ class AWSProxy(object):
 
     def _request(self, **kwargs):
         params = {}
-        for key, value in kwargs.iteritems():
+        for key, value in kwargs.items():
             if isinstance(value, list):
                 for i, v in enumerate(value, 1):
                     params['%s.member.%i' % (key, i)] = v
                 continue
             if isinstance(value, dict):
-                for i, kv in enumerate(value.iteritems(), 1):
+                for i, kv in enumerate(value.items(), 1):
                     k, v = kv
                     params['%s.member.%i.Name' % (key, i)] = k
                     params['%s.member.%i.Value' % (key, i)] = v
@@ -175,7 +175,7 @@ class AWSProxy(object):
         return self._parse_xml(response)
 
     def _parse_xml(self, xml):
-        xml = re.sub(' xmlns=".*"', '', xml)
+        xml = re.sub(b' xmlns=".*"', b'', xml)
         xml = ElementTree.XML(xml)
         return xml
 

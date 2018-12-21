@@ -14,10 +14,10 @@ Package: python-dewpoint
 Architecture: all
 Depends: ${python:Depends}, ${misc:Depends}
 Provides: ${python:Provides}
-Description: urllib2 openers that sign requests for OAuth or Amazon APIs
+Description: urllib openers that sign requests for Amazon APIs
 
 Package: python3-dewpoint
 Architecture: all
 Depends: ${python3:Depends}, ${misc:Depends}
 Provides: ${python:Provides}
-Description: urllib2 openers that sign requests for OAuth or Amazon APIs
+Description: urllib openers that sign requests for Amazon APIs
