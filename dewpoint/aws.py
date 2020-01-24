@@ -1,113 +1,119 @@
-from xml.etree import ElementTree
 import urllib.parse
 import urllib.request
 import urllib.error
 
 import hashlib
-import base64
 import hmac
 import time
-import re
-
-def format_time(ts=None):
-    if ts is None:
-        ts = time.time()
-    return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(ts))
+import json
 
 
-def parse_time(ts):
-    ts = int(time.mktime(time.strptime(ts, '%Y-%m-%dT%H:%M:%SZ')))
-    return ts
+def format_time(ts):
+    return time.strftime('%Y%m%dT%H%M%SZ', ts)
 
 
-def dictwalk(element):
-    '''
-    Convenience function for recursively converting a simple XML tree into
-    nested dicts
-    '''
-    children = list(element)
-    if not children:
-        return {element.tag: element.text}
+def format_date(ts):
+    return time.strftime('%Y%m%d', ts)
+
+
+def parse_uri(req):
+    method = req.get_method()
+    if method == b'POST':
+        query = req.data
+        uri = req.selector
     else:
-        return {element.tag: [dictwalk(x) for x in children]}
+        s = req.selector
+        if s.find('?') != -1:
+            uri, query = s.split('?', 1)
+        else:
+            uri = s
+            query = ''
+    return method, uri, query
 
 
-class AWSException(Exception):
-    def __init__(self, type, code, value, requestid):
-        self.type = type
-        self.code = code
-        self.value = value
-        self.requestid = requestid
-
-    def __str__(self):
-        return ': '.join((self.code, self.value))
-
-    def __repr__(self):
-        return '%s("%s", "%s", "%s", "%s")' % (
-            self.__class__.__name__,
-            self.type,
-            self.code,
-            self.value,
-            self.requestid,
-        )
+def canonical_headers(req):
+    keys = []
+    headers = []
+    for key, value in sorted(req.headers.items()):
+        key = key.strip().lower()
+        value = value.strip()
+        headers.append('%s:%s' % (key, value))
+        keys.append(key)
+    canon = '\n'.join(headers) + '\n\n' + ';'.join(keys)
+    return canon
 
 
-class AWSAuthHandler(urllib.request.BaseHandler):
-    def __init__(self, key, secret, version=b'2010-11-15', timeout=None):
+def canonical_hash(req):
+    method, uri, query = parse_uri(req)
+
+    query = urllib.parse.parse_qsl(query)
+    query.sort(key=lambda x: x[0])
+    query = urllib.parse.urlencode(query)
+
+    headers = canonical_headers(req)
+
+    if req.data is not None:
+        payload = req.data
+    else:
+        payload = b''
+
+    canon = '{method}\n{uri}\n{query}\n{headers}\n'.format(
+        method=method,
+        uri=uri,
+        query=query,
+        headers=headers)
+    canon += hashlib.sha256(payload).hexdigest()
+    return hashlib.sha256(canon.encode('utf8')).hexdigest()
+
+
+class AWSAuthHandlerV4(urllib.request.BaseHandler):
+    def __init__(self, key, secret, region, service, timeout=None):
         self.key = key
         self.secret = secret
-        self.version = version
+        self.region = region
+        self.service = service
         self.timeout = timeout
 
-    def get_signature(self, method, host, uri, query):
-        signature_base = b'\n'.join((method.encode('ascii'), host.encode('ascii'), uri.encode('ascii'), query.encode('ascii')))
-        signature = hmac.new(self.secret, signature_base, hashlib.sha256)
-        signature = urllib.parse.quote(base64.b64encode(signature.digest()))
-        return signature
 
-    def parse_uri(self, req):
-        method = req.get_method()
-        if method == b'POST':
-            query = req.data
-            uri = req.selector
-        else:
-            s = req.selector
-            if s.find('?') != -1:
-                uri, query = s.split('?', 1)
-            else:
-                uri = s
-                query = ''
-        return method, uri, query
+
+    def signing_key(self, scope):
+        key = b'AWS4' + self.secret.encode('utf8')
+        for msg in scope.split('/'):
+            key = hmac.digest(key, msg.encode('utf8'), hashlib.sha256)
+        return key
+
+    def sign(self, req):
+        canon_hash = canonical_hash(req)
+        scope = '{date}/{region}/{service}/aws4_request'.format(
+            date=format_date(req.timestamp),
+            region=self.region,
+            service=self.service)
+
+        signing_key = self.signing_key(scope)
+
+        string_to_sign = '\n'.join([
+            'AWS4-HMAC-SHA256',
+            format_time(req.timestamp),
+            scope,
+            canon_hash,
+        ])
+        string_to_sign = string_to_sign.encode('utf8')
+        signature = hmac.digest(signing_key, string_to_sign, hashlib.sha256)
+
+        req.add_header('Authorization', 'AWS4-HMAC-SHA256 Credential={key}/{scope}, SignedHeaders={signed_headers}, Signature={signature}'.format(
+            key=self.key,
+            scope=scope,
+            signed_headers=canonical_headers(req).rsplit('\n', 1)[1],
+            signature=signature.hex()))
 
     def http_request(self, req):
-        if not b'Host' in req.headers:
-            req.add_header(b'Host', req.host)
-        host = req.headers[b'Host'].lower()
-        method, uri, query = self.parse_uri(req)
+        req.timestamp = time.gmtime(time.time())
+        if 'Host' not in req.headers:
+            req.add_header('Host', req.host)
+        if 'x-amz-date' not in req.headers:
+            req.add_header('x-amz-date', format_time(req.timestamp))
 
-        query = urllib.parse.parse_qsl(query)
-        query += [
-            ('SignatureVersion', '2'),
-            ('SignatureMethod', 'HmacSHA256'),
-            ('AWSAccessKeyId', self.key),
-            ('Version', self.version),
-            ('Timestamp', format_time()),
-        ]
-        query.sort(key=lambda x: x[0])
-        query = urllib.parse.urlencode(query)
-
-        signature = self.get_signature(method, host, uri, query)
-        query += '&Signature=' + signature
-
-        if method == 'POST':
-            req = urllib.request.Request(
-                req.get_full_url(),
-                data=query,
-                headers=req.headers)
-        else:
-            req = urllib.request.Request(
-                '%s?%s' % (req.full_url.split('?', 1)[0], query),
-                headers=req.headers)
+        self.sign(req)
 
         req.timeout = self.timeout
         return req
@@ -116,71 +122,34 @@ class AWSAuthHandler(urllib.request.BaseHandler):
         return self.http_request(req)
 
 
-class AWSClient(object):
-    def __init__(self, key, secret, version, endpoint='', timeout=None):
-        self.opener = urllib.request.build_opener(AWSAuthHandler(key, secret, version=version))
+class AWSClient:
+    def __init__(self, auth_handler, endpoint, timeout=None):
+        self.opener = urllib.request.build_opener(auth_handler)
         self.endpoint = endpoint
         self.timeout = timeout
 
-    def request(self, method, url, data=None, headers={}):
+    def request(self, method, url, data=None, headers=None):
         url = self.endpoint + url
         if data is not None:
-            if method == 'POST':
-                data = urllib.parse.urlencode(data)
-            else:
+            if method != 'POST':
                 url = '%s?%s' % (url, urllib.parse.urlencode(data))
                 data = None
+        if headers is None:
+            headers = {}
 
-        req = urllib.request.Request(url, data, headers)
+        req = urllib.request.Request(url, data, headers, method=method)
+
         try:
             resp = self.opener.open(req, timeout=self.timeout)
+            status = resp.code
+            headers = resp.headers
+            response = resp.read()
         except urllib.error.HTTPError as e:
-            raise self.parse_httperror(e)
+            status = e.code
+            headers = e.headers
+            response = e.fp.read()
 
-        i = resp.info()
-        return (resp.code, resp.headers, resp.read())
+        if headers['content-type'] == 'application/json':
+            response = json.loads(response)
 
-    def parse_httperror(self, e):
-        response = e.fp.read()
-        tree = ElementTree.fromstring(response)
-        ns = tree.tag.split('}', 1)[0] + '}'
-        error = tree.find(ns + 'Error')
-        type = error.findtext(ns + 'Type')
-        code = error.findtext(ns + 'Code')
-        value = error.findtext(ns + 'Message')
-        requestid = tree.findtext(ns + 'RequestId')
-        return AWSException(type, code, value, requestid)
-
-
-class AWSProxy(object):
-    def __init__(self, *args, **kwargs):
-        self.api = AWSClient(*args, **kwargs)
-
-    def _request(self, **kwargs):
-        params = {}
-        for key, value in kwargs.items():
-            if isinstance(value, list):
-                for i, v in enumerate(value, 1):
-                    params['%s.member.%i' % (key, i)] = v
-                continue
-            if isinstance(value, dict):
-                for i, kv in enumerate(value.items(), 1):
-                    k, v = kv
-                    params['%s.member.%i.Name' % (key, i)] = k
-                    params['%s.member.%i.Value' % (key, i)] = v
-                continue
-            params[key] = value
-
-        status, headers, response = self.api.request('GET', '/', params)
-        return self._parse_xml(response)
-
-    def _parse_xml(self, xml):
-        xml = re.sub(b' xmlns=".*"', b'', xml)
-        xml = ElementTree.XML(xml)
-        return xml
-
-    def __getattr__(self, name):
-        def func(**kwargs):
-            kwargs['Action'] = name
-            return self._request(**kwargs)
-        return func
+        return status, headers, response

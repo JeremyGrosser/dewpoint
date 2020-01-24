@@ -2,10 +2,10 @@
 '''
 Amazon Product Advertising API Client
 '''
-from xml.etree import ElementTree
-import urllib.parse
-import dewpoint.aws
+import json
 import sys
+
+import dewpoint.aws
 
 
 def camel_case(name):
@@ -15,56 +15,43 @@ def camel_case(name):
     return ''.join(parts)
 
 
-class ProductAdvertising(object):
+class ProductAdvertising:
     def __init__(self, key, secret):
-        self.api = dewpoint.aws.AWSClient(
-            key=key,
-            secret=secret,
-            version='2013-08-01')
+        auth_handler = dewpoint.aws.AWSAuthHandlerV4(key, secret, 'us-east-1', 'ProductAdvertisingAPI')
+        self.api = dewpoint.aws.AWSClient(auth_handler, 'https://webservices.amazon.com')
 
-    def ItemSearch(self, endpoint, associate_tag, **kwargs):
-        params = {
-            'Service': 'AWSEcommerceService',
-            'Operation': 'ItemSearch',
-            'ContentType': 'text/xml',
-            'AssociateTag': associate_tag,
-        }
-
+    def search_items(self, **kwargs):
+        params = {}
         for key in kwargs:
             params[camel_case(key)] = kwargs[key]
+        payload = json.dumps(params).encode('utf8')
 
-        query = urllib.parse.urlencode(params)
-        url = '%s?%s' % (endpoint, query)
-        status, headers, xml = self.api.request('GET', url)
+        headers = {
+            'content-type': 'application/json; charset=utf-8',
+            'content-encoding': 'amz-1.0',
+            'x-amz-target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems',
+        }
 
-        xml = xml.replace(b' xmlns="http://webservices.amazon.com/AWSECommerceService/2013-08-01"', b'')
-        tree = ElementTree.XML(xml)
-        return tree
+        status, headers, response = self.api.request('POST', '/paapi5/searchitems', data=payload, headers=headers)
+        return response
+
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
         print('Usage: %s <access key> <secret key>' % sys.argv[0])
         sys.exit(1)
 
-    access_key = sys.argv[1].encode('ascii')
-    secret_key = sys.argv[2].encode('ascii')
+    access_key = sys.argv[1]
+    secret_key = sys.argv[2]
 
     pa = ProductAdvertising(access_key, secret_key)
 
-    # Change the endpoint depending on your country:
-    # https://docs.aws.amazon.com/AWSECommerceService/latest/DG/AnatomyOfaRESTRequest.html#EndpointsandWebServices
-    xml = pa.ItemSearch(
-            endpoint='https://webservices.amazon.com/onca/xml',
-            associate_tag='synack-20', 
-            search_index='Electronics',
-            browse_node='1254762011',
-            response_group='ItemAttributes,Offers',
-            sort='salesrank',
-            item_page=1)
-    
-    for element in xml.iterfind('Items/Item'):
-        asin = element.findtext('ASIN')
-        name = element.findtext('ItemAttributes/Title')
-        price = float(element.findtext('Offers/Offer/OfferListing/Price/Amount')) / 100.0
-        url = element.findtext('DetailPageURL')
-        print('%s %s\n$%.02f %s\n' % (asin, name, price, url))
+    data = pa.search_items(
+        marketplace='www.amazon.com',
+        partner_tag='synack-20',
+        partner_type='Associates',
+        keywords='harry potter',
+        search_index='All',
+        resources=['ItemInfo.Title'])
+
+    print(json.dumps(data, indent=2))
