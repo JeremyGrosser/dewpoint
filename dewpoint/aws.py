@@ -149,7 +149,4 @@ class AWSClient:
             headers = e.headers
             response = e.fp.read()
 
-        if headers['content-type'] == 'application/json':
-            response = json.loads(response)
-
         return status, headers, response
