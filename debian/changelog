@@ -1,0 +1,41 @@
+dewpoint (1.0.1-1) unstable; urgency=medium
+
+  * Add logging to AWSClient
+
+ -- Jeremy Grosser <jeremy@synack.me>  Thu, 23 Mar 2023 15:27:30 +0000
+
+dewpoint (0.6.1) unstable; urgency=medium
+
+  * AWSClient.request returns bytes, not sometimes json
+
+ -- Jeremy Grosser <jeremy@synack.me>  Thu, 30 Jan 2020 19:01:35 -0800
+
+dewpoint (0.6.0) unstable; urgency=medium
+
+  * Migrated to API signing version 4
+
+ -- Jeremy Grosser <jeremy@synack.me>  Fri, 24 Jan 2020 14:09:58 -0800
+
+dewpoint (0.5.1) unstable; urgency=medium
+
+  * Remove deprecated OAuth module
+
+ -- Jeremy Grosser <jeremy@synack.me>  Fri, 21 Dec 2018 22:29:41 +0000
+
+dewpoint (0.5.0) unstable; urgency=medium
+
+  * Python 3
+
+ -- Jeremy Grosser <jeremy@synack.me>  Mon, 17 Dec 2018 14:53:46 -0800
+
+dewpoint (0.4.1-2) unstable; urgency=medium
+
+  * Added python provides 
+
+ -- Jeremy Grosser <jeremy@synack.me>  Tue, 28 Aug 2018 00:27:23 -0700
+
+dewpoint (0.4.1-1) unstable; urgency=medium
+
+  * Initial release
+
+ -- Jeremy Grosser <jeremy@synack.me>  Mon, 27 Aug 2018 23:22:13 -0700
