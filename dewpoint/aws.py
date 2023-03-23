@@ -1,11 +1,11 @@
 import urllib.parse
 import urllib.request
 import urllib.error
+import logging
 
 import hashlib
 import hmac
 import time
-import json
 
 
 def format_time(ts):
@@ -74,8 +74,6 @@ class AWSAuthHandlerV4(urllib.request.BaseHandler):
         self.service = service
         self.timeout = timeout
 
-
-
     def signing_key(self, scope):
         key = b'AWS4' + self.secret.encode('utf8')
         for msg in scope.split('/'):
@@ -127,6 +125,8 @@ class AWSClient:
         self.opener = urllib.request.build_opener(auth_handler)
         self.endpoint = endpoint
         self.timeout = timeout
+        self.request_log = logging.getLogger('dewpoint.aws.request')
+        self.response_log = logging.getLogger('dewpoint.aws.response')
 
     def request(self, method, url, data=None, headers=None):
         url = self.endpoint + url
@@ -136,6 +136,12 @@ class AWSClient:
                 data = None
         if headers is None:
             headers = {}
+
+        self.request_log.debug('%s %s', method, url)
+        for key, value in headers.items():
+            self.request_log.debug('%s: %s', key, value)
+        if data:
+            self.request_log.debug(data)
 
         req = urllib.request.Request(url, data, headers, method=method)
 
@@ -148,5 +154,11 @@ class AWSClient:
             status = e.code
             headers = e.headers
             response = e.fp.read()
+
+        self.response_log.debug(status)
+        for key, value in headers.items():
+            self.response_log.debug('%s: %s', key, value)
+        if response:
+            self.response_log.debug(response)
 
         return status, headers, response
