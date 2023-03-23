@@ -1,3 +1,9 @@
+dewpoint (1.0.0) unstable; urgency=medium
+
+  * Add logging to AWSClient
+
+ -- Jeremy Grosser <jeremy@synack.me>  Thu, 23 Mar 2023 15:27:30 +0000
+
 dewpoint (0.6.1) unstable; urgency=medium
 
   * AWSClient.request returns bytes, not sometimes json
