@@ -6,6 +6,7 @@ import logging
 import hashlib
 import hmac
 import time
+import json
 
 
 def format_time(ts):
@@ -66,6 +67,7 @@ def canonical_hash(req):
     return hashlib.sha256(canon.encode('utf8')).hexdigest()
 
 
+# Will be deprecated on 2026-01-31, migrate to OAuth2Handler
 class AWSAuthHandlerV4(urllib.request.BaseHandler):
     def __init__(self, key, secret, region, service, timeout=None):
         self.key = key
@@ -113,6 +115,64 @@ class AWSAuthHandlerV4(urllib.request.BaseHandler):
 
         self.sign(req)
 
+        req.timeout = self.timeout
+        return req
+
+    def https_request(self, req):
+        return self.http_request(req)
+
+
+class OAuth2Handler(urllib.request.BaseHandler):
+    def __init__(self,
+                 client_id,
+                 client_secret,
+                 token_url,
+                 scope,
+                 version,
+                 timeout=None):
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.token_url = token_url
+        self.scope = scope
+        self.version = version
+        self.timeout = timeout
+        self.token = None
+        self.expires_at = 0.0
+
+    def get_token(self):
+        if self.token is not None and time.time() < self.expires_at:
+            return self.token
+
+        query = {
+            'grant_type': 'client_credentials',
+            'client_id': self.client_id,
+            'client_secret': self.client_secret,
+            'scope': self.scope,
+        }
+        query = urllib.parse.urlencode(query).encode('ascii')
+
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+
+        req = urllib.request.Request(
+            url=self.token_url,
+            headers=headers,
+            data=query
+        )
+
+        response = urllib.request.urlopen(req)
+        self.token = json.loads(response.read())
+        self.expires_at = time.time() + float(self.token['expires_in'])
+        return self.token
+
+    def http_request(self, req):
+        token = self.get_token()
+        req.add_header('Authorization', '{token_type} {access_token}, Version {version}'.format(
+            token_type=token['token_type'],
+            access_token=token['access_token'],
+            version=self.version,
+        ))
         req.timeout = self.timeout
         return req
 
