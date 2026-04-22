@@ -94,17 +94,27 @@ class OAuth2Handler(urllib.request.BaseHandler):
             'client_secret': self.client_secret,
             'scope': self.scope,
         }
-        query = urllib.parse.urlencode(query).encode('ascii')
 
-        headers = {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        }
-
-        req = urllib.request.Request(
-            url=self.token_url,
-            headers=headers,
-            data=query
-        )
+        if self.version.startswith('2.'):
+            query = urllib.parse.urlencode(query).encode('ascii')
+            headers = {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            }
+            req = urllib.request.Request(
+                url=self.token_url,
+                headers=headers,
+                data=query
+            )
+        else:
+            query = json.dumps(query).encode('ascii')
+            headers = {
+                'Content-Type': 'application/json',
+            }
+            req = urllib.request.Request(
+                url=self.token_url,
+                headers=headers,
+                data=query
+            )
 
         response = urllib.request.urlopen(req)
         self.token = json.loads(response.read())
@@ -113,11 +123,18 @@ class OAuth2Handler(urllib.request.BaseHandler):
 
     def http_request(self, req):
         token = self.get_token()
-        req.add_header('Authorization', '{token_type} {access_token}, Version {version}'.format(
-            token_type=token['token_type'],
-            access_token=token['access_token'],
-            version=self.version,
-        ))
+        if self.version.startswith('2.'):
+            authz = '{token_type} {access_token}, Version {version}'.format(
+                token_type=token['token_type'],
+                access_token=token['access_token'],
+                version=self.version,
+            )
+        else:
+            authz = 'Bearer {access_token}'.format(
+                token_type=token['token_type'],
+                access_token=token['access_token']
+            )
+        req.add_header('Authorization', authz)
         req.timeout = self.timeout
         return req
 
